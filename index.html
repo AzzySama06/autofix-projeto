@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoFix - Gestão Pro</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Menu Lateral -->
+  <div class="sidebar">
+    <div class="brand">
+      <div class="logo-icon">🔧</div>
+      <h2 id="logo-empresa">AutoFix</h2>
+    </div>
+    <nav class="menu">
+      <a class="active" onclick="mudar('dash', this)">
+        <span class="icon">📊</span> Dashboard
+      </a>
+      <a onclick="mudar('agenda', this)">
+        <span class="icon">📅</span> Agendamento
+      </a>
+      <a onclick="mudar('os', this)">
+        <span class="icon">📋</span> Ordens de Serviço
+      </a>
+      <a onclick="mudar('estoque', this)">
+        <span class="icon">📦</span> Estoque
+      </a>
+      <a onclick="mudar('config', this)">
+        <span class="icon">⚙️</span> Configurações
+      </a>
+    </nav>
+  </div>
+
+  <div class="content">
+
+    <!-- Tela 1: Dashboard Redesenhado e Dinâmico -->
+    <div id="dash" class="page active">
+      <header class="page-header">
+        <h1>Visão Geral Operacional</h1>
+        <p>Acompanhamento em tempo real dos indicadores do seu pátio e estoque.</p>
+      </header>
+
+      <!-- Métricas em Cards Modernos -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-icon blue">📅</div>
+          <div class="metric-data">
+            <span class="metric-title">Agendamentos Ativos</span>
+            <b id="dash-qtd-agenda" class="metric-value">0</b>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon purple">📋</div>
+          <div class="metric-data">
+            <span class="metric-title">Total de Ordens (OS)</span>
+            <b id="dash-total-os" class="metric-value">0</b>
+          </div>
+        </div>
+
+        <div class="metric-card warning">
+          <div class="metric-icon red">⚠️</div>
+          <div class="metric-data">
+            <span class="metric-title">Itens em Alerta</span>
+            <b id="dash-pecas-alerta" class="metric-value">0</b>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon green">✅</div>
+          <div class="metric-data">
+            <span class="metric-title">OS Concluídas</span>
+            <b id="dash-os-concluidas" class="metric-value">0</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seção do Gráfico e Resumo -->
+      <div class="dashboard-widgets">
+        <div class="widget-card">
+          <div class="widget-header">
+            <h3>Distribuição por Status das OS</h3>
+          </div>
+          <div class="progress-list">
+            <div class="progress-item">
+              <div class="progress-info">
+                <span>Concluídas</span>
+                <strong id="txt-pct-ok">0%</strong>
+              </div>
+              <div class="barra-fundo">
+                <div id="bar-prog-ok" class="barra-progresso ok" style="width: 0%;"></div>
+              </div>
+            </div>
+
+            <div class="progress-item">
+              <div class="progress-info">
+                <span>Agendadas / Em Pátio</span>
+                <strong id="txt-pct-exec">0%</strong>
+              </div>
+              <div class="barra-fundo">
+                <div id="bar-prog-exec" class="barra-progresso exec" style="width: 0%;"></div>
+              </div>
+            </div>
+
+            <div class="progress-item">
+              <div class="progress-info">
+                <span>Canceladas</span>
+                <strong id="txt-pct-erro">0%</strong>
+              </div>
+              <div class="barra-fundo">
+                <div id="bar-prog-erro" class="barra-progresso erro" style="width: 0%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Widget Informativo -->
+        <div class="widget-card info-widget">
+          <h3>Resumo do Sistema</h3>
+          <p>Toda alteração de status em <b>Ordens</b> ou inclusão em <b>Estoque</b> recarrega o gráfico automaticamente.</p>
+          <div class="system-status">
+            <span>Estado da Memória:</span>
+            <span class="status-pill online">Salvamento Ativo (Local)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tela 2: Agendamento -->
+    <div id="agenda" class="page">
+      <header class="page-header">
+        <h1>Agendamento & Triagem Rápida</h1>
+      </header>
+      
+      <div class="grid-agendamento">
+        <form onsubmit="salvarAgendamento(event)">
+          <h3>Novo Agendamento</h3>
+          <input type="text" id="agNome" placeholder="Nome do Cliente" required>
+          <input type="text" id="agVeiculo" placeholder="Veículo e Placa (Ex: Civic ABC1D23)" required>
+          <input type="datetime-local" id="agData" required>
+          
+          <select id="agTipo" required>
+            <option value="" disabled selected>Selecione o Tipo de Serviço</option>
+            <option value="Revisão Geral">Revisão Geral</option>
+            <option value="Diagnóstico / Barulho">Diagnóstico / Barulho</option>
+            <option value="Troca de Óleo / Filtros">Troca de Óleo / Filtros</option>
+            <option value="Sistema de Freios">Sistema de Freios</option>
+            <option value="Suspensão / Alinhamento">Suspensão / Alinhamento</option>
+          </select>
+
+          <input type="text" id="agDefeito" placeholder="Detalhes / Sintomas Relatados" required>
+          <button type="submit">Confirmar e Gerar OS</button>
+        </form>
+
+        <div class="painel-agendamentos">
+          <h3>Próximos Agendamentos</h3>
+          <div id="lista-agendamentos" class="cards-vertical"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tela 3: Ordens de Serviço -->
+    <div id="os" class="page">
+      <header class="page-header">
+        <h1>Ordens de Serviço</h1>
+      </header>
+      
+      <div class="filtros">
+        <button class="btn-filtro active" onclick="filtrarOS('todos', this)">Todos</button>
+        <button class="btn-filtro" onclick="filtrarOS('Concluído', this)">Concluídos</button>
+        <button class="btn-filtro" onclick="filtrarOS('Agendado', this)">Agendados</button>
+        <button class="btn-filtro" onclick="filtrarOS('Cancelado', this)">Cancelados</button>
+      </div>
+
+      <table id="tabela-os">
+        <thead>
+          <tr>
+            <th>Nº OS</th>
+            <th>Cliente / Veículo</th>
+            <th>Serviço Solicitado</th>
+            <th>Emitido por</th>
+            <th>Status (Alterar)</th>
+          </tr>
+        </thead>
+        <tbody id="corpo-tabela-os"></tbody>
+      </table>
+    </div>
+
+    <!-- Tela 4: Estoque -->
+    <div id="estoque" class="page">
+      <header class="page-header">
+        <h1>Controle de Estoque</h1>
+      </header>
+
+      <form onsubmit="adicionarEstoque(event)" class="form-inline">
+        <h3>Adicionar Item ao Estoque</h3>
+        <input type="text" id="nomeItem" placeholder="Nome da Peça" required>
+        <input type="number" id="qtdItem" placeholder="Quantidade Inicial" required>
+        <button type="submit">Incluir Item</button>
+      </form>
+
+      <div id="lista-estoque" class="grid-estoque"></div>
+    </div>
+
+    <!-- Tela 5: Configurações -->
+    <div id="config" class="page">
+      <header class="page-header">
+        <h1>Configurações da Oficina</h1>
+      </header>
+      
+      <form onsubmit="salvarConfiguracoes(event)">
+        <h3>Dados da Empresa</h3>
+        <input type="text" id="cfgNome" placeholder="Nome Fantasia da Oficina" required>
+        <input type="text" id="cfgCnpj" placeholder="CNPJ" required>
+        <input type="tel" id="cfgTelefone" placeholder="Telefone / WhatsApp" required>
+        <input type="text" id="cfgEndereco" placeholder="Endereço Completo" required>
+        <button type="submit">Salvar Dados da Oficina</button>
+      </form>
+    </div>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
