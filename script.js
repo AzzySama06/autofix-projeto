@@ -51,6 +51,7 @@ function renderizarTudo() {
   renderizarAgendamentos();
   renderizarOS();
   renderizarEstoque();
+  renderizarItensAgendamento();
 }
 
 // --- DASHBOARD AUTOMÁTICO ---
@@ -60,7 +61,10 @@ function renderizarDashboard() {
   const alertaEl = document.getElementById('dash-pecas-alerta');
   const concluidasEl = document.getElementById('dash-os-concluidas');
 
-  if (agendaEl) agendaEl.innerText = AppData.agendamentos.length;
+  if (agendaEl) agendaEl.innerText = AppData.agendamentos.filter(ag => {
+    const ordem = ag.osId && AppData.ordens.find(os => os.id === ag.osId);
+    return !ordem || ordem.status === 'Agendado';
+  }).length;
   if (totalOsEl) totalOsEl.innerText = AppData.ordens.length;
 
   const pecasAlerta = AppData.estoque.filter(item => item.qtd < 5).length;
@@ -141,7 +145,9 @@ function renderizarAgendamentos() {
   if (!container) return;
   container.innerHTML = '';
   
-  AppData.agendamentos.forEach(ag => {
+  AppData.agendamentos.forEach((ag, indice) => {
+    const ordem = ag.osId ? AppData.ordens.find(os => os.id === ag.osId) : null;
+    if (ordem && ordem.status !== 'Agendado') return;
     container.innerHTML += `
       <div class="card-agenda">
         <div class="agenda-topo">
@@ -150,6 +156,7 @@ function renderizarAgendamentos() {
         </div>
         <p>🚗 ${ag.veiculo} - ${ag.tipo}</p>
         <small>📅 ${ag.data}</small>
+        <button class="btn-deletar" onclick="retirarAgendamento(${indice})">Cancelar agendamento</button>
       </div>
     `;
   });
@@ -165,15 +172,29 @@ function salvarAgendamento(e) {
   
   const dataFormatada = new Date(dataHora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
   const emissorFormatado = AppData.config.telefone ? `${AppData.config.nome} | ${AppData.config.telefone}` : AppData.config.nome;
+  const itens = [...document.querySelectorAll('.item-agenda-check:checked')].map(check => ({
+    estoqueId: Number(check.value),
+    quantidade: Number(document.querySelector(`.item-agenda-qtd[data-item-id="${check.value}"]`).value)
+  }));
+  for (const item of itens) {
+    const estoque = AppData.estoque.find(registro => registro.id === item.estoqueId);
+    if (!estoque || !Number.isInteger(item.quantidade) || item.quantidade < 1 || item.quantidade > estoque.qtd) {
+      alert('Confira as quantidades dos itens selecionados.');
+      return;
+    }
+  }
+  const idOS = AppData.contadorOS++;
 
-  AppData.agendamentos.unshift({ nome, veiculo, tipo, data: dataFormatada });
+  AppData.agendamentos.unshift({ nome, veiculo, tipo, data: dataFormatada, osId: idOS });
 
   AppData.ordens.unshift({
-    id: AppData.contadorOS++,
+    id: idOS,
     cliente: `${nome} (${veiculo})`,
     serviço: `[${tipo}] ${defeito}`,
     emissor: emissorFormatado,
-    status: 'Agendado'
+    status: 'Agendado',
+    itensEstoque: itens,
+    estoqueBaixado: false
   });
 
   salvarBD();
@@ -201,10 +222,10 @@ function renderizarOS() {
       <tr data-status="${os.status}">
         <td>#${os.id}</td>
         <td>${os.cliente}</td>
-        <td>${os.serviço}</td>
+        <td>${os.serviço}${os.itensEstoque?.length ? `<br><small>Itens: ${os.itensEstoque.map(item => `${AppData.estoque.find(reg => reg.id === item.estoqueId)?.nome || 'Item removido'} × ${item.quantidade}`).join(', ')}</small>` : ''}</td>
         <td>${os.emissor}</td>
         <td>
-          <select class="select-status ${classeCor}" onchange="alterarStatusOS(${os.id}, this)">
+          <select class="select-status ${classeCor}" onchange="alterarStatusOS(${os.id}, this)" ${os.status === 'Concluído' ? 'disabled' : ''}>
             <option value="Concluído" ${os.status === 'Concluído' ? 'selected' : ''}>Concluído</option>
             <option value="Agendado" ${os.status === 'Agendado' ? 'selected' : ''}>Agendado</option>
             <option value="Cancelado" ${os.status === 'Cancelado' ? 'selected' : ''}>Cancelado</option>
@@ -220,6 +241,20 @@ function alterarStatusOS(id, selectElement) {
   const os = AppData.ordens.find(o => o.id === id);
   
   if (os) {
+    if (novoStatus === 'Concluído' && !os.estoqueBaixado) {
+      for (const item of os.itensEstoque || []) {
+        const estoque = AppData.estoque.find(registro => registro.id === item.estoqueId);
+        if (!estoque || estoque.qtd < item.quantidade) {
+          alert(`Estoque insuficiente para concluir a OS. Confira ${estoque?.nome || 'um dos itens vinculados'}.`);
+          renderizarOS();
+          return;
+        }
+      }
+      (os.itensEstoque || []).forEach(item => {
+        AppData.estoque.find(registro => registro.id === item.estoqueId).qtd -= item.quantidade;
+      });
+      os.estoqueBaixado = true;
+    }
     os.status = novoStatus;
     salvarBD();
     renderizarTudo();
@@ -294,4 +329,29 @@ function mudar(id, el) {
   if (el) {
     el.classList.add('active');
   }
+}
+
+function retirarAgendamento(indice) {
+  const agendamento = AppData.agendamentos[indice];
+  if (!agendamento || !confirm(`Cancelar o agendamento de ${agendamento.nome}?`)) return;
+  const ordem = agendamento.osId && AppData.ordens.find(os => os.id === agendamento.osId);
+  if (ordem && ordem.status === 'Agendado') ordem.status = 'Cancelado';
+  AppData.agendamentos.splice(indice, 1);
+  salvarBD();
+  renderizarTudo();
+}
+
+function renderizarItensAgendamento() {
+  const container = document.getElementById('itens-disponiveis-agenda');
+  if (!container) return;
+  if (!AppData.estoque.length) {
+    container.innerHTML = '<small>Nenhum item cadastrado no estoque.</small>';
+    return;
+  }
+  container.innerHTML = AppData.estoque.map(item => `
+    <label class="item-selecao">
+      <span><input type="checkbox" class="item-agenda-check" value="${item.id}"> ${item.nome} (disponível: ${item.qtd})</span>
+      <input type="number" class="item-agenda-qtd" data-item-id="${item.id}" min="1" max="${item.qtd}" value="1" aria-label="Quantidade de ${item.nome}">
+    </label>
+  `).join('');
 }
