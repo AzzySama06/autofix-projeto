@@ -43,6 +43,18 @@ function salvarBD() {
 
 document.addEventListener('DOMContentLoaded', () => {
   renderizarTudo();
+  document.getElementById('modal-detalhes-os')?.addEventListener('click', event => {
+    if (event.target.id === 'modal-detalhes-os') fecharDetalhesOS();
+  });
+  document.getElementById('modal-confirmacao')?.addEventListener('click', event => {
+    if (event.target.id === 'modal-confirmacao') fecharConfirmacao();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      fecharDetalhesOS();
+      fecharConfirmacao();
+    }
+  });
 });
 
 function renderizarTudo() {
@@ -219,46 +231,208 @@ function renderizarOS() {
     const classeCor = os.status === 'Concluído' ? 'ok' : os.status === 'Agendado' ? 'exec' : 'erro';
     
     corpo.innerHTML += `
-      <tr data-status="${os.status}">
+      <tr data-status="${os.status}" class="linha-os" onclick="abrirDetalhesOS(${os.id})">
         <td>#${os.id}</td>
         <td>${os.cliente}</td>
         <td>${os.serviço}${os.itensEstoque?.length ? `<br><small>Itens: ${os.itensEstoque.map(item => `${AppData.estoque.find(reg => reg.id === item.estoqueId)?.nome || 'Item removido'} × ${item.quantidade}`).join(', ')}</small>` : ''}</td>
         <td>${os.emissor}</td>
         <td>
-          <select class="select-status ${classeCor}" onchange="alterarStatusOS(${os.id}, this)" ${os.status === 'Concluído' ? 'disabled' : ''}>
+          <select class="select-status ${classeCor}" onclick="event.stopPropagation()" onchange="alterarStatusOS(${os.id}, this)">
             <option value="Concluído" ${os.status === 'Concluído' ? 'selected' : ''}>Concluído</option>
             <option value="Agendado" ${os.status === 'Agendado' ? 'selected' : ''}>Agendado</option>
             <option value="Cancelado" ${os.status === 'Cancelado' ? 'selected' : ''}>Cancelado</option>
           </select>
+        </td>
+        <td>
+          <button type="button" class="btn-acao-os btn-excluir-os" onclick="event.stopPropagation(); excluirOS(${os.id})">Excluir</button>
         </td>
       </tr>
     `;
   });
 }
 
+function abrirDetalhesOS(id) {
+  const os = AppData.ordens.find(ordem => ordem.id === id);
+  if (!os) return;
+
+  const agendamento = AppData.agendamentos.find(ag =>
+    ag.osId === os.id || os.cliente === `${ag.nome} (${ag.veiculo})`
+  );
+  const cliente = agendamento?.nome || os.cliente.split(' (')[0];
+  const veiculo = agendamento?.veiculo || os.cliente.match(/\((.*)\)$/)?.[1] || 'Não informado';
+  const tipo = agendamento?.tipo || 'Não informado';
+  const defeito = agendamento ? obterDefeito(os.serviço, agendamento.tipo) : os.serviço;
+  const itens = (os.itensEstoque || []).map(item => {
+    const estoque = AppData.estoque.find(registro => registro.id === item.estoqueId);
+    return `${estoque?.nome || 'Item removido'} × ${item.quantidade}`;
+  });
+
+  document.getElementById('modal-os-titulo').textContent = `OS #${os.id}`;
+  document.getElementById('modal-os-detalhes').innerHTML = `
+    <div class="modal-os-status"><span>Status</span><strong>${escaparHtml(os.status)}</strong></div>
+    <div class="modal-os-grade">
+      <div><span>Cliente</span><strong>${escaparHtml(cliente)}</strong></div>
+      <div><span>Veículo e placa</span><strong>${escaparHtml(veiculo)}</strong></div>
+      <div><span>Tipo de serviço</span><strong>${escaparHtml(tipo)}</strong></div>
+      <div><span>Data do agendamento</span><strong>${escaparHtml(agendamento?.data || 'Não informado')}</strong></div>
+    </div>
+    <div class="modal-os-bloco"><span>Detalhes / sintomas relatados</span><p>${escaparHtml(defeito)}</p></div>
+    ${itens.length ? `<div class="modal-os-bloco"><span>Itens previstos</span><p>${escaparHtml(itens.join(', '))}</p></div>` : ''}
+  `;
+
+  const modal = document.getElementById('modal-detalhes-os');
+  modal.hidden = false;
+  document.body.classList.add('modal-aberto');
+  modal.querySelector('.modal-os-fechar').focus();
+}
+
+function obterDefeito(servico, tipo) {
+  const prefixo = `[${tipo}] `;
+  return servico.startsWith(prefixo) ? servico.slice(prefixo.length) : servico;
+}
+
+function escaparHtml(valor) {
+  return String(valor)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function fecharDetalhesOS() {
+  const modal = document.getElementById('modal-detalhes-os');
+  if (!modal || modal.hidden) return;
+  modal.hidden = true;
+  document.body.classList.remove('modal-aberto');
+}
+
 function alterarStatusOS(id, selectElement) {
   const novoStatus = selectElement.value;
   const os = AppData.ordens.find(o => o.id === id);
   
-  if (os) {
-    if (novoStatus === 'Concluído' && !os.estoqueBaixado) {
-      for (const item of os.itensEstoque || []) {
-        const estoque = AppData.estoque.find(registro => registro.id === item.estoqueId);
-        if (!estoque || estoque.qtd < item.quantidade) {
-          alert(`Estoque insuficiente para concluir a OS. Confira ${estoque?.nome || 'um dos itens vinculados'}.`);
-          renderizarOS();
-          return;
-        }
+  if (!os || novoStatus === os.status) return;
+  abrirConfirmacao(
+    `Deseja realmente alterar o status da OS #${os.id} de "${os.status}" para "${novoStatus}"?`,
+    () => concluirAlteracaoStatusOS(os, novoStatus),
+    { confirmarTexto: 'Alterar status' }
+  );
+}
+
+function concluirAlteracaoStatusOS(os, novoStatus) {
+  if (novoStatus === 'Concluído' && !os.estoqueBaixado) {
+    for (const item of os.itensEstoque || []) {
+      const estoque = AppData.estoque.find(registro => registro.id === item.estoqueId);
+      if (!estoque || estoque.qtd < item.quantidade) {
+        alert(`Estoque insuficiente para concluir a OS. Confira ${estoque?.nome || 'um dos itens vinculados'}.`);
+        renderizarOS();
+        return;
       }
-      (os.itensEstoque || []).forEach(item => {
-        AppData.estoque.find(registro => registro.id === item.estoqueId).qtd -= item.quantidade;
-      });
-      os.estoqueBaixado = true;
     }
-    os.status = novoStatus;
-    salvarBD();
-    renderizarTudo();
+    (os.itensEstoque || []).forEach(item => {
+      AppData.estoque.find(registro => registro.id === item.estoqueId).qtd -= item.quantidade;
+    });
+    os.estoqueBaixado = true;
   }
+  os.status = novoStatus;
+  salvarBD();
+  renderizarTudo();
+}
+
+function devolverItensAoEstoque(os) {
+  const itens = os.itensEstoque || [];
+  const registros = itens.map(item => AppData.estoque.find(registro => registro.id === item.estoqueId));
+  if (registros.some(registro => !registro)) {
+    alert('Não foi possível devolver os itens: uma peça vinculada não existe mais no estoque.');
+    return false;
+  }
+
+  itens.forEach((item, indice) => {
+    registros[indice].qtd += item.quantidade;
+  });
+  os.estoqueBaixado = false;
+  return true;
+}
+
+function excluirOS(id) {
+  const os = AppData.ordens.find(ordem => ordem.id === id);
+  if (!os) return;
+
+  if (os.status === 'Concluído' && os.estoqueBaixado && os.itensEstoque?.length) {
+    abrirConfirmacao(
+      `Deseja realmente excluir a OS #${os.id}? Escolha o que fazer com os itens usados.`,
+      () => excluirOSConfirmada(os, true),
+      {
+        confirmarTexto: 'Devolver e excluir',
+        alternativaTexto: 'Excluir sem devolver',
+        aoEscolherAlternativa: () => excluirOSConfirmada(os, false)
+      }
+    );
+    return;
+  }
+
+  abrirConfirmacao(`Deseja realmente excluir a OS #${os.id}?`, () => excluirOSConfirmada(os, false), {
+    confirmarTexto: 'Excluir OS',
+    classeConfirmar: 'btn-confirmar-perigo'
+  });
+}
+
+function excluirOSConfirmada(os, devolverItens) {
+  if (devolverItens && !devolverItensAoEstoque(os)) return;
+  AppData.ordens = AppData.ordens.filter(ordem => ordem.id !== os.id);
+  AppData.agendamentos = AppData.agendamentos.filter(ag =>
+    ag.osId !== os.id && os.cliente !== `${ag.nome} (${ag.veiculo})`
+  );
+  salvarBD();
+  renderizarTudo();
+}
+
+function abrirConfirmacao(mensagem, aoConfirmar, opcoes = {}) {
+  const modal = document.getElementById('modal-confirmacao');
+  const acoes = document.getElementById('modal-confirmacao-acoes');
+  document.getElementById('modal-confirmacao-mensagem').textContent = mensagem;
+  acoes.innerHTML = '';
+
+  const cancelar = document.createElement('button');
+  cancelar.type = 'button';
+  cancelar.className = 'btn-confirmacao btn-cancelar';
+  cancelar.textContent = 'Cancelar';
+  cancelar.onclick = fecharConfirmacao;
+  acoes.appendChild(cancelar);
+
+  if (opcoes.alternativaTexto && opcoes.aoEscolherAlternativa) {
+    const alternativa = document.createElement('button');
+    alternativa.type = 'button';
+    alternativa.className = 'btn-confirmacao btn-alternativa';
+    alternativa.textContent = opcoes.alternativaTexto;
+    alternativa.onclick = () => {
+      fecharConfirmacao();
+      opcoes.aoEscolherAlternativa();
+    };
+    acoes.appendChild(alternativa);
+  }
+
+  const confirmar = document.createElement('button');
+  confirmar.type = 'button';
+  confirmar.className = `btn-confirmacao ${opcoes.classeConfirmar || ''}`;
+  confirmar.textContent = opcoes.confirmarTexto || 'Confirmar';
+  confirmar.onclick = () => {
+    fecharConfirmacao();
+    aoConfirmar();
+  };
+  acoes.appendChild(confirmar);
+
+  modal.hidden = false;
+  document.body.classList.add('modal-aberto');
+  confirmar.focus();
+}
+
+function fecharConfirmacao() {
+  const modal = document.getElementById('modal-confirmacao');
+  if (!modal || modal.hidden) return;
+  modal.hidden = true;
+  document.body.classList.remove('modal-aberto');
+  renderizarOS();
 }
 
 function filtrarOS(status, btn) {

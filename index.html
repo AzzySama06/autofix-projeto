@@ -187,10 +187,40 @@
             <th>Serviço Solicitado</th>
             <th>Emitido por</th>
             <th>Status (Alterar)</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody id="corpo-tabela-os"></tbody>
       </table>
+    </div>
+
+    <div id="modal-detalhes-os" class="modal-os" role="dialog" aria-modal="true" aria-labelledby="modal-os-titulo" hidden>
+      <div class="modal-os-conteudo">
+        <div class="modal-os-cabecalho">
+          <div>
+            <span class="modal-os-legenda">Detalhes da ordem de serviço</span>
+            <h2 id="modal-os-titulo"></h2>
+          </div>
+          <button type="button" class="modal-os-fechar" onclick="fecharDetalhesOS()" aria-label="Fechar detalhes">×</button>
+        </div>
+        <div id="modal-os-detalhes" class="modal-os-detalhes"></div>
+      </div>
+    </div>
+
+    <div id="modal-confirmacao" class="modal-os" role="dialog" aria-modal="true" aria-labelledby="modal-confirmacao-titulo" hidden>
+      <div class="modal-os-conteudo modal-confirmacao-conteudo">
+        <div class="modal-os-cabecalho">
+          <div>
+            <span class="modal-os-legenda">Confirmação</span>
+            <h2 id="modal-confirmacao-titulo">Confirmar ação</h2>
+          </div>
+          <button type="button" class="modal-os-fechar" onclick="fecharConfirmacao()" aria-label="Fechar confirmação">×</button>
+        </div>
+        <div class="modal-confirmacao-corpo">
+          <p id="modal-confirmacao-mensagem"></p>
+          <div id="modal-confirmacao-acoes" class="modal-confirmacao-acoes"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Tela 4: Estoque -->

@@ -96,11 +96,16 @@ button:hover { background: #0369a1; }
 table { width: 100%; background: var(--bg-card); border-collapse: collapse; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
 th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.875rem; }
 th { background: var(--bg-main); color: var(--text-muted); font-weight: 600; }
+.linha-os { cursor: pointer; transition: background 0.2s ease; }
+.linha-os:hover { background: #f0f9ff; }
 
 .select-status { width: auto; margin-top: 0; padding: 4px 8px; font-size: 0.8rem; font-weight: 600; border-radius: 6px; border: 1px solid transparent; cursor: pointer; }
 .select-status.ok { background: #dcfce7; color: #15803d; }
 .select-status.exec { background: #fef3c7; color: #b45309; }
 .select-status.erro { background: #fee2e2; color: #b91c1c; }
+.btn-acao-os { width: auto; margin: 0; padding: 6px 9px; font-size: 0.78rem; }
+.btn-excluir-os { background: var(--accent-erro); }
+.btn-excluir-os:hover { background: #dc2626; }
 
 .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
 .badge.ok { background: #dcfce7; color: #15803d; }
@@ -111,3 +116,36 @@ th { background: var(--bg-main); color: var(--text-muted); font-weight: 600; }
 .card-item { background: var(--bg-card); padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); min-width: 200px; }
 .btn-deletar { background: var(--accent-erro); margin-top: 10px; font-size: 0.8rem; padding: 6px; }
 .btn-deletar:hover { background: #dc2626; }
+
+/* Detalhes da OS */
+body.modal-aberto { overflow: hidden; }
+.modal-os[hidden] { display: none; }
+.modal-os { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(15, 23, 42, 0.55); }
+.modal-os-conteudo { width: min(620px, 100%); max-height: 90vh; overflow-y: auto; background: var(--bg-card); border-radius: 14px; box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25); }
+.modal-os-cabecalho { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 22px 24px; border-bottom: 1px solid var(--border-color); }
+.modal-os-legenda, .modal-os-detalhes span { color: var(--text-muted); font-size: 0.78rem; }
+.modal-os-cabecalho h2 { margin-top: 4px; font-size: 1.35rem; }
+.modal-os-fechar { width: 34px; height: 34px; margin: 0; padding: 0; background: transparent; color: var(--text-muted); font-size: 1.7rem; line-height: 1; }
+.modal-os-fechar:hover { background: var(--bg-main); color: var(--text-main); }
+.modal-os-detalhes { padding: 22px 24px 24px; }
+.modal-confirmacao-conteudo { width: min(500px, 100%); }
+.modal-confirmacao-corpo { padding: 22px 24px 24px; }
+.modal-confirmacao-corpo p { color: var(--text-main); line-height: 1.5; }
+.modal-confirmacao-acoes { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 22px; }
+.btn-confirmacao { width: auto; margin: 0; padding: 9px 14px; }
+.btn-cancelar { background: #e2e8f0; color: var(--text-main); }
+.btn-cancelar:hover { background: #cbd5e1; }
+.btn-alternativa { background: var(--accent-exec); }
+.btn-alternativa:hover { background: #d97706; }
+.btn-confirmar-perigo { background: var(--accent-erro); }
+.btn-confirmar-perigo:hover { background: #dc2626; }
+.modal-os-status { display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 18px; border-radius: 8px; background: var(--bg-main); }
+.modal-os-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.modal-os-grade div, .modal-os-bloco { display: flex; flex-direction: column; gap: 5px; }
+.modal-os-grade strong { overflow-wrap: anywhere; }
+.modal-os-bloco { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border-color); }
+.modal-os-bloco p { color: var(--text-main); line-height: 1.45; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .modal-os-grade { grid-template-columns: 1fr; }
+  .modal-os-cabecalho, .modal-os-detalhes { padding-left: 18px; padding-right: 18px; }
+}
