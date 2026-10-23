@@ -16,7 +16,17 @@ const dadosIniciais = {
   ],
   estoque: [
     { id: 1, nome: 'Óleo 5W30 Sintético', qtd: 45 },
-    { id: 2, nome: 'Pastilha de Freio HB20', qtd: 2 }
+    { id: 2, nome: 'Pastilha de Freio HB20', qtd: 2 },
+    { id: 3, nome: 'Filtro de Óleo', qtd: 18 },
+    { id: 4, nome: 'Filtro de Ar do Motor', qtd: 12 },
+    { id: 5, nome: 'Fluido de Freio DOT 4', qtd: 8 },
+    { id: 6, nome: 'Aditivo para Radiador', qtd: 3 },
+    { id: 7, nome: 'Velas de Ignição', qtd: 16 },
+    { id: 8, nome: 'Correia Dentada', qtd: 4 },
+    { id: 9, nome: 'Lâmpada Automotiva H7', qtd: 10 },
+    { id: 10, nome: 'Palheta do Limpador', qtd: 6 },
+    { id: 11, nome: 'Pastilha de Freio Dianteira', qtd: 7 },
+    { id: 12, nome: 'Bateria Automotiva 60Ah', qtd: 2 }
   ],
   contadorOS: 1004
 };
@@ -29,6 +39,15 @@ try {
 } catch (e) {
   console.error('Erro ao ler do localStorage, carregando dados iniciais:', e);
   AppData = dadosIniciais;
+}
+
+if (!AppData.estoqueBaseAdicionado) {
+  const idsExistentes = new Set(AppData.estoque.map(item => item.id));
+  dadosIniciais.estoque.forEach(item => {
+    if (!idsExistentes.has(item.id)) AppData.estoque.push({ ...item });
+  });
+  AppData.estoqueBaseAdicionado = true;
+  salvarBD();
 }
 
 // Salvamento Seguro no LocalStorage
