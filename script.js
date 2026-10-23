@@ -43,6 +43,8 @@ function salvarBD() {
 
 document.addEventListener('DOMContentLoaded', () => {
   renderizarTudo();
+  document.getElementById('agCpf')?.addEventListener('input', formatarCpf);
+  document.getElementById('agPlaca')?.addEventListener('input', formatarPlaca);
   document.getElementById('modal-detalhes-os')?.addEventListener('click', event => {
     if (event.target.id === 'modal-detalhes-os') fecharDetalhesOS();
   });
@@ -166,7 +168,8 @@ function renderizarAgendamentos() {
           <b>${ag.nome}</b>
           <span class="badge exec">Agendado</span>
         </div>
-        <p>🚗 ${ag.veiculo} - ${ag.tipo}</p>
+        <p>🚗 ${ag.veiculo || 'Veículo não informado'}${ag.placa ? ` - ${ag.placa}` : ''} - ${ag.tipo}</p>
+        ${ag.cpf ? `<small>👤 CPF: ${ag.cpf}</small>` : ''}
         <small>📅 ${ag.data}</small>
         <button class="btn-deletar" onclick="retirarAgendamento(${indice})">Cancelar agendamento</button>
       </div>
@@ -176,11 +179,24 @@ function renderizarAgendamentos() {
 
 function salvarAgendamento(e) {
   e.preventDefault();
+  const cpf = document.getElementById('agCpf').value.trim();
   const nome = document.getElementById('agNome').value;
   const veiculo = document.getElementById('agVeiculo').value;
+  const placa = document.getElementById('agPlaca').value.trim().toUpperCase();
   const dataHora = document.getElementById('agData').value;
-  const tipo = document.getElementById('agTipo').value;
+  const tipoSelecionado = document.getElementById('agTipo').value;
+  const tipoCustomizado = document.getElementById('agTipoCustomizado').value.trim();
+  const tipo = tipoSelecionado === 'customizado' ? tipoCustomizado : tipoSelecionado;
   const defeito = document.getElementById('agDefeito').value;
+
+  if (cpf.replace(/\D/g, '').length !== 11) {
+    alert('Informe um CPF válido com 11 números.');
+    return;
+  }
+  if (tipoSelecionado === 'customizado' && !tipoCustomizado) {
+    alert('Descreva o serviço customizado.');
+    return;
+  }
   
   const dataFormatada = new Date(dataHora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
   const emissorFormatado = AppData.config.telefone ? `${AppData.config.nome} | ${AppData.config.telefone}` : AppData.config.nome;
@@ -195,30 +211,62 @@ function salvarAgendamento(e) {
       return;
     }
   }
+
+  itens.forEach(item => {
+    AppData.estoque.find(registro => registro.id === item.estoqueId).qtd -= item.quantidade;
+  });
+
   const idOS = AppData.contadorOS++;
 
-  AppData.agendamentos.unshift({ nome, veiculo, tipo, data: dataFormatada, osId: idOS });
+  AppData.agendamentos.unshift({ cpf, nome, veiculo, placa, tipo, data: dataFormatada, osId: idOS });
 
   AppData.ordens.unshift({
     id: idOS,
-    cliente: `${nome} (${veiculo})`,
+    cliente: `${nome} (${veiculo} - ${placa})`,
     serviço: `[${tipo}] ${defeito}`,
     emissor: emissorFormatado,
     status: 'Agendado',
     itensEstoque: itens,
-    estoqueBaixado: false
+    estoqueBaixado: true
   });
 
   salvarBD();
   renderizarTudo();
 
   document.getElementById('agNome').value = '';
+  document.getElementById('agCpf').value = '';
   document.getElementById('agVeiculo').value = '';
+  document.getElementById('agPlaca').value = '';
   document.getElementById('agData').value = '';
   document.getElementById('agTipo').value = '';
+  document.getElementById('agTipoCustomizado').value = '';
+  alternarServicoCustomizado();
   document.getElementById('agDefeito').value = '';
 
   alert('Agendamento salvo com sucesso!');
+}
+
+function alternarServicoCustomizado() {
+  const tipo = document.getElementById('agTipo');
+  const campo = document.getElementById('campo-servico-customizado');
+  const input = document.getElementById('agTipoCustomizado');
+  if (!tipo || !campo || !input) return;
+  const customizado = tipo.value === 'customizado';
+  campo.hidden = !customizado;
+  input.required = customizado;
+  if (!customizado) input.value = '';
+}
+
+function formatarCpf(event) {
+  const numeros = event.target.value.replace(/\D/g, '').slice(0, 11);
+  event.target.value = numeros
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+}
+
+function formatarPlaca(event) {
+  event.target.value = event.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 7).toUpperCase();
 }
 
 // --- ORDENS DE SERVIÇO ---
@@ -256,10 +304,14 @@ function abrirDetalhesOS(id) {
   if (!os) return;
 
   const agendamento = AppData.agendamentos.find(ag =>
-    ag.osId === os.id || os.cliente === `${ag.nome} (${ag.veiculo})`
+    ag.osId === os.id ||
+    os.cliente === `${ag.nome} (${ag.veiculo})` ||
+    os.cliente === `${ag.nome} (${ag.veiculo} - ${ag.placa})`
   );
   const cliente = agendamento?.nome || os.cliente.split(' (')[0];
-  const veiculo = agendamento?.veiculo || os.cliente.match(/\((.*)\)$/)?.[1] || 'Não informado';
+  const veiculo = agendamento
+    ? `${agendamento.veiculo || 'Não informado'}${agendamento.placa ? ` - ${agendamento.placa}` : ''}`
+    : os.cliente.match(/\((.*)\)$/)?.[1] || 'Não informado';
   const tipo = agendamento?.tipo || 'Não informado';
   const defeito = agendamento ? obterDefeito(os.serviço, agendamento.tipo) : os.serviço;
   const itens = (os.itensEstoque || []).map(item => {
@@ -272,18 +324,94 @@ function abrirDetalhesOS(id) {
     <div class="modal-os-status"><span>Status</span><strong>${escaparHtml(os.status)}</strong></div>
     <div class="modal-os-grade">
       <div><span>Cliente</span><strong>${escaparHtml(cliente)}</strong></div>
+      <div><span>CPF</span><strong>${escaparHtml(agendamento?.cpf || 'Não informado')}</strong></div>
       <div><span>Veículo e placa</span><strong>${escaparHtml(veiculo)}</strong></div>
       <div><span>Tipo de serviço</span><strong>${escaparHtml(tipo)}</strong></div>
       <div><span>Data do agendamento</span><strong>${escaparHtml(agendamento?.data || 'Não informado')}</strong></div>
     </div>
     <div class="modal-os-bloco"><span>Detalhes / sintomas relatados</span><p>${escaparHtml(defeito)}</p></div>
-    ${itens.length ? `<div class="modal-os-bloco"><span>Itens previstos</span><p>${escaparHtml(itens.join(', '))}</p></div>` : ''}
+    <div class="modal-os-bloco">
+      <div class="modal-os-bloco-titulo">
+        <span>Itens previstos</span>
+        ${os.status === 'Agendado' ? `<button type="button" class="btn-acao-os btn-editar-itens-os" onclick="event.stopPropagation(); editarItensOS(${os.id})">Alterar itens</button>` : ''}
+      </div>
+      <p>${itens.length ? escaparHtml(itens.join(', ')) : 'Nenhum item previsto.'}</p>
+    </div>
   `;
 
   const modal = document.getElementById('modal-detalhes-os');
   modal.hidden = false;
   document.body.classList.add('modal-aberto');
   modal.querySelector('.modal-os-fechar').focus();
+}
+
+function editarItensOS(id) {
+  const os = AppData.ordens.find(ordem => ordem.id === id);
+  if (!os || os.status !== 'Agendado') return;
+
+  const modalDetalhes = document.getElementById('modal-os-detalhes');
+  modalDetalhes.innerHTML = `
+    <div class="modal-os-bloco">
+      <span>Alterar itens previstos da OS #${os.id}</span>
+      <p>Selecione os itens e ajuste as quantidades. O estoque será atualizado ao salvar.</p>
+      <div id="itens-edicao-os" class="itens-edicao-os">${renderizarOpcoesItensOS(os)}</div>
+    </div>
+    <div class="acoes-editor-os">
+      <button type="button" class="btn-cancelar-edicao" onclick="abrirDetalhesOS(${os.id})">Cancelar</button>
+      <button type="button" onclick="salvarItensOS(${os.id})">Salvar itens</button>
+    </div>
+  `;
+}
+
+function renderizarOpcoesItensOS(os) {
+  if (!AppData.estoque.length) return '<small>Nenhum item cadastrado no estoque.</small>';
+  const itensAtuais = os.itensEstoque || [];
+  return AppData.estoque.map(item => {
+    const itemAtual = itensAtuais.find(registro => registro.estoqueId === item.id);
+    const quantidadeDisponivel = item.qtd + (os.estoqueBaixado ? itemAtual?.quantidade || 0 : 0);
+    return `
+      <label class="item-selecao">
+        <span><input type="checkbox" class="item-os-check" value="${item.id}" ${itemAtual ? 'checked' : ''}> ${escaparHtml(item.nome)} (disponível: ${quantidadeDisponivel})</span>
+        <input type="number" class="item-os-qtd" data-item-id="${item.id}" min="1" max="${quantidadeDisponivel}" value="${itemAtual?.quantidade || 1}" aria-label="Quantidade de ${escaparHtml(item.nome)}">
+      </label>
+    `;
+  }).join('');
+}
+
+function salvarItensOS(id) {
+  const os = AppData.ordens.find(ordem => ordem.id === id);
+  if (!os || os.status !== 'Agendado') return;
+
+  const itens = [...document.querySelectorAll('.item-os-check:checked')].map(check => ({
+    estoqueId: Number(check.value),
+    quantidade: Number(document.querySelector(`.item-os-qtd[data-item-id="${check.value}"]`).value)
+  }));
+  const itensAnteriores = os.itensEstoque || [];
+  if (os.estoqueBaixado && !devolverItensAoEstoque(os)) return;
+
+  for (const item of itens) {
+    const estoque = AppData.estoque.find(registro => registro.id === item.estoqueId);
+    if (!estoque || !Number.isInteger(item.quantidade) || item.quantidade < 1 || item.quantidade > estoque.qtd) {
+      alert('Confira as quantidades dos itens selecionados.');
+      os.itensEstoque = itensAnteriores;
+      descontarItensDoEstoque(os);
+      return;
+    }
+  }
+
+  os.itensEstoque = itens;
+  descontarItensDoEstoque(os);
+  salvarBD();
+  renderizarTudo();
+  abrirDetalhesOS(id);
+}
+
+function descontarItensDoEstoque(os) {
+  (os.itensEstoque || []).forEach(item => {
+    const estoque = AppData.estoque.find(registro => registro.id === item.estoqueId);
+    if (estoque) estoque.qtd -= item.quantidade;
+  });
+  os.estoqueBaixado = true;
 }
 
 function obterDefeito(servico, tipo) {
@@ -329,10 +457,7 @@ function concluirAlteracaoStatusOS(os, novoStatus) {
         return;
       }
     }
-    (os.itensEstoque || []).forEach(item => {
-      AppData.estoque.find(registro => registro.id === item.estoqueId).qtd -= item.quantidade;
-    });
-    os.estoqueBaixado = true;
+    descontarItensDoEstoque(os);
   }
   os.status = novoStatus;
   salvarBD();
@@ -358,7 +483,7 @@ function excluirOS(id) {
   const os = AppData.ordens.find(ordem => ordem.id === id);
   if (!os) return;
 
-  if (os.status === 'Concluído' && os.estoqueBaixado && os.itensEstoque?.length) {
+  if (os.estoqueBaixado && os.itensEstoque?.length) {
     abrirConfirmacao(
       `Deseja realmente excluir a OS #${os.id}? Escolha o que fazer com os itens usados.`,
       () => excluirOSConfirmada(os, true),
@@ -381,7 +506,9 @@ function excluirOSConfirmada(os, devolverItens) {
   if (devolverItens && !devolverItensAoEstoque(os)) return;
   AppData.ordens = AppData.ordens.filter(ordem => ordem.id !== os.id);
   AppData.agendamentos = AppData.agendamentos.filter(ag =>
-    ag.osId !== os.id && os.cliente !== `${ag.nome} (${ag.veiculo})`
+    ag.osId !== os.id &&
+    os.cliente !== `${ag.nome} (${ag.veiculo})` &&
+    os.cliente !== `${ag.nome} (${ag.veiculo} - ${ag.placa})`
   );
   salvarBD();
   renderizarTudo();

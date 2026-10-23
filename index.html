@@ -136,24 +136,67 @@
       
       <div class="grid-agendamento">
         <form onsubmit="salvarAgendamento(event)">
-          <h3>Novo Agendamento</h3>
-          <input type="text" id="agNome" placeholder="Nome do Cliente" required>
-          <input type="text" id="agVeiculo" placeholder="Veículo e Placa (Ex: Civic ABC1D23)" required>
-          <input type="datetime-local" id="agData" required>
-          
-          <select id="agTipo" required>
+          <div class="form-titulo">
+            <span class="form-legenda">Triagem de entrada</span>
+            <h3>Novo Agendamento</h3>
+          </div>
+
+          <div class="campo-grupo">
+            <label for="agCpf">CPF do cliente</label>
+            <input type="text" id="agCpf" placeholder="000.000.000-00" inputmode="numeric" maxlength="14" required>
+          </div>
+          <div class="campo-grupo">
+            <label for="agNome">Nome completo</label>
+            <input type="text" id="agNome" placeholder="Nome do cliente" autocomplete="name" required>
+          </div>
+
+          <div class="campos-duplos">
+            <div class="campo-grupo">
+              <label for="agVeiculo">Modelo do veículo</label>
+              <input type="text" id="agVeiculo" placeholder="Ex.: Honda Civic" required>
+            </div>
+            <div class="campo-grupo">
+              <label for="agPlaca">Placa</label>
+              <input type="text" id="agPlaca" placeholder="ABC1D23" maxlength="7" required>
+            </div>
+          </div>
+
+          <div class="campo-grupo">
+            <label for="agData">Data e horário</label>
+            <input type="datetime-local" id="agData" required>
+          </div>
+
+          <div class="campo-grupo">
+            <label for="agTipo">Serviço desejado</label>
+            <select id="agTipo" required onchange="alternarServicoCustomizado()">
             <option value="" disabled selected>Selecione o Tipo de Serviço</option>
             <option value="Revisão Geral">Revisão Geral</option>
             <option value="Diagnóstico / Barulho">Diagnóstico / Barulho</option>
             <option value="Troca de Óleo / Filtros">Troca de Óleo / Filtros</option>
             <option value="Sistema de Freios">Sistema de Freios</option>
             <option value="Suspensão / Alinhamento">Suspensão / Alinhamento</option>
-          </select>
+            <option value="Ar-condicionado">Ar-condicionado</option>
+            <option value="Bateria e Elétrica">Bateria e Elétrica</option>
+            <option value="Injeção Eletrônica">Injeção Eletrônica</option>
+            <option value="Motor e Câmbio">Motor e Câmbio</option>
+            <option value="Funilaria e Pintura">Funilaria e Pintura</option>
+            <option value="Pneus e Rodas">Pneus e Rodas</option>
+            <option value="Higienização">Higienização</option>
+            <option value="customizado">Serviço customizado</option>
+            </select>
+          </div>
+          <div id="campo-servico-customizado" class="campo-grupo campo-customizado" hidden>
+            <label for="agTipoCustomizado">Descreva o serviço</label>
+            <input type="text" id="agTipoCustomizado" placeholder="Ex.: Instalação de acessórios">
+          </div>
 
-          <input type="text" id="agDefeito" placeholder="Detalhes / Sintomas Relatados" required>
+          <div class="campo-grupo">
+            <label for="agDefeito">Detalhes ou sintomas relatados</label>
+            <textarea id="agDefeito" placeholder="Conte o que precisa ser verificado no veículo" rows="3" required></textarea>
+          </div>
           <div class="itens-agendamento">
             <h4>Itens previstos para o serviço</h4>
-            <p>O estoque será atualizado quando a OS for concluída.</p>
+            <p>Os itens serão descontados do estoque ao criar a OS.</p>
             <div id="itens-disponiveis-agenda"></div>
           </div>
           <button type="submit">Confirmar e Gerar OS</button>
